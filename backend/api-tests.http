@@ -1,0 +1,194 @@
+### MERMS API Testing File
+### Use VS Code "REST Client" or "Thunder Client" to run these directly!
+
+@baseUrl = http://localhost:3000
+
+# ==========================================
+# 1. PUBLIC / GENERAL
+# ==========================================
+
+### Health Check
+GET {{baseUrl}}/
+Accept: application/json
+
+### Get National Trends (Publicly aggregatable data)
+GET {{baseUrl}}/alerts/national
+Accept: application/json
+
+
+# ==========================================
+# 2. AUTHENTICATION
+# ==========================================
+
+### Register an EOC Admin User
+# @name registerEoc
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+    "email": "eoc@example.com",
+    "password": "password123",
+    "role": "eoc",
+    "firstName": "Super",
+    "lastName": "Admin"
+}
+
+### Register a PHO User
+# @name registerPho
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+    "email": "pho@example.com",
+    "password": "password123",
+    "role": "pho",
+    "organizationId": "zone-777"
+}
+
+### Register an Institution
+# @name registerInstitution
+POST {{baseUrl}}/auth/register
+Content-Type: application/json
+
+{
+    "email": "hospital@example.com",
+    "password": "password123",
+    "role": "institution",
+    "organizationId": "hospital-404"
+}
+
+### Login (Obtain Token)
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+    "email": "eoc@example.com",
+    "password": "password123"
+}
+
+### To test authenticated routes via cURL, set the returned access_token as a variable
+# In bash: export TOKEN="your_jwt_here"
+@token = {{login.response.body.session.access_token}}
+
+
+# ==========================================
+# 3. REPORTS (Role: institution)
+# ==========================================
+
+### Submit a Sentinel Report
+POST {{baseUrl}}/reports
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "patientCount": 5,
+    "originLocation": {
+        "lat": 6.5244,
+        "lng": 3.3792,
+        "address": "Lagos Mainland"
+    },
+    "symptomMatrix": ["Fever", "Cough", "Fatigue"],
+    "severity": 8,
+    "notes": "Cluster of unknown respiratory distress"
+}
+
+### View Own Facility's Submission Feed
+GET {{baseUrl}}/reports/feed
+Authorization: Bearer {{token}}
+
+### Get Medical Director Analytics
+GET {{baseUrl}}/reports/analytics
+Authorization: Bearer {{token}}
+
+
+# ==========================================
+# 4. ALERTS / PHO LEVEL (Role: pho)
+# ==========================================
+
+### Get AI-Ranked Alert Inbox
+GET {{baseUrl}}/alerts/inbox
+Authorization: Bearer {{token}}
+
+### Claim an Alert for Investigation (Replace :id)
+POST {{baseUrl}}/alerts/123e4567-e89b-12d3-a456-426614174000/claim
+Authorization: Bearer {{token}}
+
+### Promote Alert Status
+PATCH {{baseUrl}}/alerts/123e4567-e89b-12d3-a456-426614174000/status
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "status": "confirmed"
+}
+
+### Broadcast Civilian Alerts
+POST {{baseUrl}}/alerts/broadcast
+Authorization: Bearer {{token}}
+
+### Escalate Alert to EOC
+POST {{baseUrl}}/alerts/123e4567-e89b-12d3-a456-426614174000/escalate
+Authorization: Bearer {{token}}
+
+### Get Hyper-Local Zone Alerts (Role: civilian)
+GET {{baseUrl}}/alerts/local?lat=6.5244&lng=3.3792
+Authorization: Bearer {{token}}
+
+
+# ==========================================
+# 5. ADMIN / EOC COMMAND (Role: eoc)
+# ==========================================
+
+### Approve a Facility
+PATCH {{baseUrl}}/admin/facilities/facility-id-123/status
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "status": "approved"
+}
+
+### Appoint PHO and Assign to Zone
+POST {{baseUrl}}/admin/phos
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "userId": "user-uuid-here",
+    "zoneId": "zone-777"
+}
+
+### Manage Response Protocol Library
+POST {{baseUrl}}/admin/protocols
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "title": "Ebola Standard Response",
+    "content": "Isolate patient immediately...",
+    "diseaseId": "ebola-virus-disease"
+}
+
+### Override AI False Positive Alert
+POST {{baseUrl}}/admin/alerts/alert-id-123/override
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "totpToken": "123456"
+}
+
+### Blacklist a Facility
+POST {{baseUrl}}/admin/facilities/facility-id-123/blacklist
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "reason": "Repeated false reporting"
+}
+
+### Revoke PHO Broadcast Rights
+POST {{baseUrl}}/admin/phos/pho-id-123/revoke_broadcast
+Authorization: Bearer {{token}}
+

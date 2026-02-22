@@ -1,0 +1,56 @@
+import { Context, Next } from 'hono';
+import { supabase } from '../supabase.js';
+
+// Extend Hono Context to include user
+declare module 'hono' {
+    interface ContextVariableMap {
+        user: {
+            id: string;
+            email: string;
+            role: 'eoc' | 'pho' | 'institution' | 'civilian';
+            organizationId?: string;
+        };
+    }
+}
+
+export const requireAuth = async (c: Context, next: Next) => {
+    const authHeader = c.req.header('Authorization');
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return c.json({ error: 'Unauthorized: Missing or invalid Authorization header' }, 401);
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    // Verify token with Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+
+    if (error || !user) {
+        return c.json({ error: 'Unauthorized: Invalid token' }, 401);
+    }
+
+    // Get user profile to get role. Alternatively, role can be extracted from user_metadata
+    const role = user.user_metadata?.role || 'civilian';
+    const organizationId = user.user_metadata?.organizationId;
+
+    c.set('user', {
+        id: user.id,
+        email: user.email!,
+        role: role as 'eoc' | 'pho' | 'institution' | 'civilian',
+        organizationId
+    });
+
+    await next();
+};
+
+export const requireRole = (allowedRoles: string[]) => {
+    return async (c: Context, next: Next) => {
+        const user = c.get('user');
+
+        if (!user || !allowedRoles.includes(user.role)) {
+            return c.json({ error: 'Forbidden: Insufficient permissions' }, 403);
+        }
+
+        await next();
+    };
+};
